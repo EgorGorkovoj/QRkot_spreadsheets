@@ -1,8 +1,27 @@
-from datetime import datetime
-
 from aiogoogle import Aiogoogle
 from app.core.config import settings
-from app.core.constants import FORMAT
+from app.core.constants import NOW_DATE_TIME
+
+
+SPREADSHEET_BODY = {
+    'properties': {'title': f'Отчёт на {NOW_DATE_TIME}',
+                   'locale': 'ru_RU'},
+    'sheets': [{'properties': {'sheetType': 'GRID',
+                               'sheetId': 0,
+                               'title': 'Лист1',
+                               'gridProperties': {'rowCount': 100,
+                                                  'columnCount': 11}}}]
+}
+
+PERMISSIONS_BODY = {'type': 'user',
+                    'role': 'writer',
+                    'emailAddress': settings.email}
+
+TABLE_VALUES = [
+    ['Отчёт от', NOW_DATE_TIME],
+    ['Топ проектов по скорости закрытия'],
+    ['Название проекта', 'Время сбора', 'Описание']
+]
 
 
 async def convert_seconds_to_dhms(seconds: int) -> str:
@@ -20,46 +39,33 @@ async def convert_seconds_to_dhms(seconds: int) -> str:
 
 async def spreadsheets_create(wrapper_services: Aiogoogle) -> str:
     """Функция отвечающая за создание гугл-таблицы."""
-    now_date_time = datetime.now().strftime(FORMAT)
     service = await wrapper_services.discover('sheets', 'v4')
-    spreadsheet_body = {
-        'properties': {'title': f'Отчёт на {now_date_time}',
-                       'locale': 'ru_RU'},
-        'sheets': [{'properties': {'sheetType': 'GRID',
-                                   'sheetId': 0,
-                                   'title': 'Лист1',
-                                   'gridProperties': {'rowCount': 100,
-                                                      'columnCount': 11}}}]
-    }
     response = await wrapper_services.as_service_account(
-        service.spreadsheets.create(json=spreadsheet_body)
+        service.spreadsheets.create(json=SPREADSHEET_BODY)
     )
-    spreadsheetid = response['spreadsheetId']
-    return spreadsheetid
+    spreadsheet_id = response['spreadsheetId']
+    return spreadsheet_id
 
 
 async def set_user_permissions(
-        spreadsheetid: str,
+        spreadsheet_id: str,
         wrapper_services: Aiogoogle
 ) -> None:
     """
     Функция для выдачи прав доступа к таблице
     личному гугл-аккаунту.
     """
-    permissions_body = {'type': 'user',
-                        'role': 'writer',
-                        'emailAddress': settings.email}
     service = await wrapper_services.discover('drive', 'v3')
     await wrapper_services.as_service_account(
         service.permissions.create(
-            fileId=spreadsheetid,
-            json=permissions_body,
+            fileId=spreadsheet_id,
+            json=PERMISSIONS_BODY,
             fields='id'
         ))
 
 
 async def spreadsheets_update_value(
-        spreadsheetid: str,
+        spreadsheet_id: str,
         projects: list,
         wrapper_services: Aiogoogle
 ) -> None:
@@ -68,26 +74,24 @@ async def spreadsheets_update_value(
     на основе переданных данных. В гугл-таблицах значения по
     умолчанию в ячейках None, поэтому нужно использовать метод update.
     """
-    now_date_time = datetime.now().strftime(FORMAT)
     service = await wrapper_services.discover('sheets', 'v4')
     table_values = [
-        ['Отчёт от', now_date_time],
-        ['Топ проектов по скорости закрытия'],
-        ['Название проекта', 'Время сбора', 'Описание']
+        *TABLE_VALUES,
+        *[
+            list(map(str, project)) for project in projects
+        ]
     ]
-    for project in projects:
-        new_row = list(project)
-        new_row[1] = await convert_seconds_to_dhms(project[1])
-        table_values.append(new_row)
-
+    for values in table_values[len(TABLE_VALUES):]:
+        if values[1] and values[1].isdigit():
+            values[1] = await convert_seconds_to_dhms(int(values[1]))
     update_body = {
         'majorDimension': 'ROWS',
         'values': table_values
     }
     await wrapper_services.as_service_account(
         service.spreadsheets.values.update(
-            spreadsheetId=spreadsheetid,
-            range='A1:E30',
+            spreadsheetId=spreadsheet_id,
+            range=f'A1:C{len(table_values)}',
             valueInputOption='USER_ENTERED',
             json=update_body
         )
