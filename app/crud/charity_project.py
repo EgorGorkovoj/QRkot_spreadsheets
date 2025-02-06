@@ -32,11 +32,18 @@ class CRUDCharityProject(CRUDBase):
         для сбора пожертвований.
         Время сбора указывается в секундах.
         """
-        second = (extract('second', self.model.create_date) -
-                  extract('second', self.model.close_date))
+        second = (extract('second', self.model.close_date) -
+                  extract('second', self.model.create_date))
+        minute = (extract('minute', self.model.close_date) -
+                  extract('minute', self.model.create_date)) * 60
+        hour = (extract('hour', self.model.close_date) -
+                extract('hour', self.model.create_date)) * 60 * 60
+        day = (extract('day', self.model.close_date) -
+               extract('day', self.model.create_date)) * 24 * 60 * 60
+        total_second = second + minute + hour + day
         stmt = select([
             self.model.name,
-            second.label('time'),
+            total_second.label('time'),
             self.model.description
         ]).where(self.model.fully_invested.is_(True)).order_by('time')
         projects = await session.execute(stmt)
