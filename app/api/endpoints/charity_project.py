@@ -27,6 +27,8 @@ async def get_all_charity_projects(
     """
     Получение списка благотворительных проектов.
     Доступно всем пользователям.
+    Параметры:
+        session (AsyncSession): Асинхронная сессия базы данных.
     """
     all_projects = await charity_project_crud.get_multi(session)
     return all_projects
@@ -44,6 +46,9 @@ async def create_charity_project(
     """
     Создание благотворительного проекта.
     Только для суперпользователей.
+    Параметры:
+        1) charity_project (CharityProjectCreate): Схема для создания нового проекта;
+        2) session (AsyncSession): Асинхронная сессия базы данных.
     """
     await check_name_duplicate(charity_project.name, session)
     project = await charity_project_crud.create(
@@ -70,6 +75,11 @@ async def partially_update_charity_project(
     """
     Частичное обновление благотворительного проекта.
     Только для суперпользователей.
+    Параметры:
+        1) project_id (int): ID проекта;
+        2) obj_in (CharityProjectUpdate): Схеама для частичного
+        обновления проекта;
+        3) session (AsyncSession): Асинхронная сессия с базой данных.
     """
     charity_project = await check_charity_project_exists(project_id, session)
     await check_charity_project_before_edit(charity_project, obj_in)
@@ -93,6 +103,9 @@ async def remove_charity_project(
     """
     Удаление благотворительного проекта. Только для суперпользователей.
     Нельзя удалить закрытый или инвестировынный проект.
+    Параметры:
+        1) project_id (int): ID проекта для удаления;
+        2) session (AsyncSession): Асинхронная сессия с базой данных.
     """
     project = await check_charity_project_exists(project_id, session)
     await check_charity_project_is_not_invested_or_closed(project)

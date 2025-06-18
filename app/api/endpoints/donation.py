@@ -20,7 +20,11 @@ router = APIRouter()
 async def get_all_donations(
     session: AsyncSession = Depends(get_async_session)
 ):
-    """Получение списка всех пожертвований. Только для суперпользователей."""
+    """
+    Получение списка всех пожертвований. Только для суперпользователей.
+    Параметры:
+        1) session (AsyncSession): Асинхронная сессия БД.
+    """
     all_donations = await donation_crud.get_multi(session)
     return all_donations
 
@@ -33,6 +37,9 @@ async def get_all_current_users_donation(
     """
     Получение списка своих пожертвований.
     Только для авторизованных пользователей.
+    Параметры:
+       1) session (AsyncSession): Асинхронная сессия БД;
+       2) user (User): Авторизованный пользователь.
     """
     all_user_donations = await donation_crud.get_all_user_donations(
         session, user
@@ -47,7 +54,15 @@ async def make_a_donation(
     user: User = Depends(current_user)
 
 ):
-    """Создание пожертвования. Только для авторизованных пользователей."""
+    """
+    Создание пожертвования. Только для авторизованных пользователей.
+    После создания пожертвование может быть автоматически распределено
+    по открытым проектам.
+    Параметры:
+        1) donation (DonationCreate): Данные нового пожертвования;
+        2) session (AsyncSession): Асинхронная сессия БД;
+        3) user (User): Авторизованный пользователь.
+    """
     new_donation = await donation_crud.create(donation, session, user)
     projects = await (
         charity_project_crud.get_a_free_projects_or_dotanations(session)
